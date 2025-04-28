@@ -36,12 +36,6 @@ You can access the model locally by entering the URL:
 
 http://127.0.0.1:7860
 
-If you prefer working in a jupyter notebook setting you can run:
-
-```bash
-uv run --with jupyter jupyter lab
-```
-
 ## Data sources
 
 The chatbot access a Code Llama 7B model found at:
