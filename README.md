@@ -1,6 +1,6 @@
 # rprogrammingllama
 
-This project allows you to locally run an R-programming chatbot. The chatbot accesses a Code Llama 7B model fine tuned on R programming examples.
+This project allows you to locally run an R-programming chatbot. The chatbot accesses a Code Llama 7B model fine-tuned on R programming examples.
 
 ## Running the Model
 
