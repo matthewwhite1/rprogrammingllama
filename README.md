@@ -1,28 +1,40 @@
-# USU LLM Class
+# rprogrammingllama
 
-Repository for USU LLM Class DSAI-5810/6810
+This project allows you to locally run an R-programming chatbot. The chatbot accesses a Code Llama 7B model fine tuned on R programming examples.
 
-## Contributing
+## Running the Model
 
-### Set up your environment
-
-Install `uv` using the instructions found here: <https://docs.astral.sh/uv/getting-started/installation/>
-
-### Add dependencies
-
-If you need to add dependencies to run your code, for example cowsay, you can do so with:
+### Download this repository
 
 ```bash
-uv add cowsay
+git clone https://github.com/matthewwhite1/rprogrammingllama
 ```
 
-### Change the code
+### Run the chatbot
 
-Update the code to complete your homework. You can run your experiment like so:
+Load into the virtual environment
 
 ```bash
-uv run main.py
+source .venv/Scripts/activate
 ```
+
+Run the chatbot
+
+```bash
+python main.py
+```
+
+### Access the chatbot
+
+Once your terminal says something like:
+
+```bash
+Loading checkpoint shards: 100%|##########| 2/2 [00:20<00:00, 10.46s/it]
+```
+
+You can access the model locally by entering the URL:
+
+http://127.0.0.1:7860
 
 If you prefer working in a jupyter notebook setting you can run:
 
@@ -30,39 +42,12 @@ If you prefer working in a jupyter notebook setting you can run:
 uv run --with jupyter jupyter lab
 ```
 
-### Run formatting/linting/tests
+## Data sources
 
-```bash
-uv run ruff format
-uv run ruff check
-uv run pytest
-```
+The chatbot access a Code Llama 7B model found at:
 
-### ZenML
+https://huggingface.co/codellama
 
-Create your server with:
+The R examples were downloaded from:
 
-```bash
-docker run -it -d -p 8080:8080 --name zenml zenmldocker/zenml-server
-```
-
-You will need to visit the ZenML dashboard at http://localhost:8080 and activate the server by creating an initial admin user account. You can then connect your client to the server with the web login flow:
-
-```bash
-zenml login http://localhost:8080
-```
-
-You can stop it and start it back up again with:
-
-```bash
-docker stop zenml
-docker start zenml
-```
-
-To delete the server and start over you can run:
-
-```bash
-docker rm zenml
-```
-
-yeahhhhhhh# rprogrammingllama
+https://github.com/drndr/gencodesearchnet
