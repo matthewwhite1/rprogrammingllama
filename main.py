@@ -1,4 +1,6 @@
 from trainer import train
+from frontend import create_interface
 
 if __name__ == "__main__":
-    train()
+    # train()
+    create_interface()

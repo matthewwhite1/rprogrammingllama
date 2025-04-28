@@ -1,57 +1,87 @@
-from zenml import step
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
+from peft import PeftModel
 import torch
-from PIL import Image
 import gradio as gr
-from transformers import LlamaForCausalLM, AutoProcessor
 
+def load_r_llama(model_dir="r_model"):
+    # tokenizer + pad_token
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    tokenizer.pad_token = tokenizer.eos_token
 
-def load_model():
-    model_id = "meta-llama/Llama-3.2-1B"
-    device = "cuda" if torch.cuda.is_available() else "cpu"  # Check if GPU is available
+    # 4-bit quant config
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
 
-    model = LlamaForCausalLM.from_pretrained(
-        "meta-llama/Llama-3.2-1B",
-        torch_dtype=torch.bfloat16,
+    # load base model in 4-bit
+    base = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-3.2-3B",
+        quantization_config=bnb_config,
         device_map="auto",
-        max_memory={0: "6GB", "cpu": "12GB"},
+        trust_remote_code=True,
     )
 
-    model.tie_weights()  # Tying weights for efficiency
-    processor = AutoProcessor.from_pretrained(model_id)
-    print(f"Model loaded on: {device}")
+    # apply LoRA adapters
+    model = PeftModel.from_pretrained(base, model_dir)
+    model.eval()
+    return model, tokenizer
 
-    return model, processor
+# load once
+MODEL, TOKENIZER = load_r_llama()
+
+def r_chat_fn(message, history):
+    # Stateless prompt: only current instruction
+    system = "You are an expert R programmer."
+    instr  = f"Write R code to {message}. Do not include any explanations or examples. Respond with valid R code only."
+    prompt = f"{system}\n\n### Instruction:\n{instr}\n### Response:"
+
+    # tokenize + pad/truncate
+    inputs = TOKENIZER(
+        prompt,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=4096,
+    ).to(MODEL.device)
+
+    # generate code, stopping at eos
+    outputs = MODEL.generate(
+        **inputs,
+        max_new_tokens=300,
+        do_sample=True,
+        top_p=0.9,
+        temperature=0.7,
+        repetition_penalty=1.2,
+        no_repeat_ngram_size=3, 
+        eos_token_id=TOKENIZER.eos_token_id,
+        pad_token_id=TOKENIZER.eos_token_id
+    )
+
+    # decode only the new tokens
+    gen = TOKENIZER.decode(
+        outputs[0][inputs["input_ids"].shape[-1]:],
+        skip_special_tokens=True,
+    ).strip()
+
+    return gen
 
 
-def process_ticket(text):
-    model, processor = load_model()
 
-    try:
-        prompt = f"<|begin_of_text|>{text}"
-        # Process text-only input
-        inputs = processor(text=prompt, return_tensors="pt").to(model.device)
-
-        # Generate response (restrict token length for faster output)
-        outputs = model.generate(**inputs, max_new_tokens=200)
-        # Decode the response from tokens to text
-        response = processor.decode(outputs[0], skip_special_tokens=True)
-        return response
-
-    except Exception as e:
-        print(f"Error processing ticket: {e}")
-        return "An error occurred while processing your request."
-
-
-@step
 def create_interface():
-    # Create the Gradio interface
     interface = gr.ChatInterface(
-        fn=process_ticket,  # Function to process inputs
-        title="Text Completion Llama Chatbot",
-        description="Let an LLM write some more text based on your prompt.",
+        fn=r_chat_fn,
+        type="messages",
+        title="R-Programming LLaMA Assistant",
+        description="Ask your fine-tuned R-LLaMA to write or explain R code. Each prompt is independent of the previous prompt.",
     )
 
-    # Launch the interface with debug mode
     # See chatbot at http://127.0.0.1:7860
-    print("Launching chatbot!")
+    print("Launching chatbot…")
     interface.launch()
