@@ -7,6 +7,7 @@ from peft import PeftModel
 import torch
 import gradio as gr
 
+
 def load_r_llama(model_dir="r_model"):
     # tokenizer + pad_token
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
@@ -33,12 +34,14 @@ def load_r_llama(model_dir="r_model"):
     model.eval()
     return model, tokenizer
 
+
 # load once
 MODEL, TOKENIZER = load_r_llama()
 
+
 def r_chat_fn(message, history):
     system = "You are an expert R programmer. Only output valid R code. Do not include explanations, examples, or any extra text. Output R code only."
-    instr  = f"Task: {message}\n\nOnly output valid R code, and nothing else."
+    instr = f"Task: {message}\n\nOnly output valid R code, and nothing else."
     prompt = f"{system}\n\n### Instruction:\n{instr}\n\n### R Code:\n"
 
     inputs = TOKENIZER(
@@ -62,13 +65,11 @@ def r_chat_fn(message, history):
     )
 
     gen = TOKENIZER.decode(
-        outputs[0][inputs["input_ids"].shape[-1]:],
+        outputs[0][inputs["input_ids"].shape[-1] :],
         skip_special_tokens=True,
     ).strip()
 
     return gen
-
-
 
 
 def create_interface():

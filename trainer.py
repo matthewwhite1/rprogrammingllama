@@ -4,20 +4,17 @@ from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
     BitsAndBytesConfig,
-    TrainingArguments
+    TrainingArguments,
 )
 from peft import LoraConfig, get_peft_model
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import SFTTrainer
 
 sys.stdout.reconfigure(encoding="utf-8")
 
+
 def train():
     ##### 1. Load local JSON as HF Dataset #####
-    raw = load_dataset(
-        "json", 
-        data_files="data/statcodesearch.json",
-        split=None
-    )
+    raw = load_dataset("json", data_files="data/statcodesearch.json", split=None)
     # If the dataset is returned as a DatasetDict, extract the dataset
     if isinstance(raw, dict):
         raw = raw[list(raw.keys())[0]]
@@ -26,9 +23,8 @@ def train():
     def make_instruction(ex):
         instruction = f"Write ONLY R code to {ex['Comment'].strip()}. Respond with valid, efficient R code only. Do not explain the code; just provide the code."
         prompt = f"<s>[INST] {instruction} [/INST] {ex['Code'].strip()}</s>"
-        return {
-            "text": prompt
-        }
+        return {"text": prompt}
+
     inst = raw.map(make_instruction)
 
     ##### 3. Tokenize prompts + code separately #####
@@ -36,12 +32,14 @@ def train():
     tokenizer.pad_token = tokenizer.eos_token
 
     def preprocess(ex):
-        enc = tokenizer(ex["text"], truncation=True, padding="max_length", max_length=512)
+        enc = tokenizer(
+            ex["text"], truncation=True, padding="max_length", max_length=512
+        )
         labels = enc["input_ids"].copy()  # Train to predict full output
         return {
             "input_ids": enc["input_ids"],
             "attention_mask": enc["attention_mask"],
-            "labels": labels
+            "labels": labels,
         }
 
     tok = inst.map(preprocess, remove_columns=inst.column_names)
@@ -60,9 +58,11 @@ def train():
         trust_remote_code=True,
     )
     lora_cfg = LoraConfig(
-        r=8, lora_alpha=16,
-        target_modules=["q_proj","v_proj"],
-        lora_dropout=0.05, bias="none",
+        r=8,
+        lora_alpha=16,
+        target_modules=["q_proj", "v_proj"],
+        lora_dropout=0.05,
+        bias="none",
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, lora_cfg)
@@ -86,12 +86,8 @@ def train():
         optim="paged_adamw_8bit",
         report_to="none",
     )
-    response_template = "### Response:\n"
     trainer = SFTTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=tok,
-        processing_class=tokenizer
+        model=model, args=training_args, train_dataset=tok, processing_class=tokenizer
     )
     trainer.train()
 
@@ -99,4 +95,3 @@ def train():
     model.save_pretrained("./r_model")
     tokenizer.save_pretrained("./r_model")
     print("Training complete; adapters saved to ./r_model")
-
