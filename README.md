@@ -38,7 +38,7 @@ http://127.0.0.1:7860
 
 ## Data sources
 
-The chatbot access a Code Llama 7B model found at:
+The chatbot accesses a Code Llama 7B model found at:
 
 https://huggingface.co/codellama
 
