@@ -22,7 +22,7 @@ def load_r_llama(model_dir="r_model"):
 
     # load base model in 4-bit
     base = AutoModelForCausalLM.from_pretrained(
-        "meta-llama/Llama-3.2-3B",
+        "codellama/CodeLlama-7b-hf",
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
@@ -37,12 +37,10 @@ def load_r_llama(model_dir="r_model"):
 MODEL, TOKENIZER = load_r_llama()
 
 def r_chat_fn(message, history):
-    # Stateless prompt: only current instruction
-    system = "You are an expert R programmer."
-    instr  = f"Write R code to {message}. Do not include any explanations or examples. Respond with valid R code only."
-    prompt = f"{system}\n\n### Instruction:\n{instr}\n### Response:"
+    system = "You are an expert R programmer. Only output valid R code. Do not include explanations, examples, or any extra text. Output R code only."
+    instr  = f"Task: {message}\n\nOnly output valid R code, and nothing else."
+    prompt = f"{system}\n\n### Instruction:\n{instr}\n\n### R Code:\n"
 
-    # tokenize + pad/truncate
     inputs = TOKENIZER(
         prompt,
         return_tensors="pt",
@@ -51,7 +49,6 @@ def r_chat_fn(message, history):
         max_length=4096,
     ).to(MODEL.device)
 
-    # generate code, stopping at eos
     outputs = MODEL.generate(
         **inputs,
         max_new_tokens=300,
@@ -59,18 +56,18 @@ def r_chat_fn(message, history):
         top_p=0.9,
         temperature=0.7,
         repetition_penalty=1.2,
-        no_repeat_ngram_size=3, 
+        no_repeat_ngram_size=3,
         eos_token_id=TOKENIZER.eos_token_id,
-        pad_token_id=TOKENIZER.eos_token_id
+        pad_token_id=TOKENIZER.eos_token_id,
     )
 
-    # decode only the new tokens
     gen = TOKENIZER.decode(
         outputs[0][inputs["input_ids"].shape[-1]:],
         skip_special_tokens=True,
     ).strip()
 
     return gen
+
 
 
 

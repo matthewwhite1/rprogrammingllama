@@ -24,29 +24,20 @@ def train():
 
     ##### 2. Reformat examples into instruction–response pairs #####
     def make_instruction(ex):
-        instr = f"### Instruction:\nWrite ONLY R code to {ex['Comment'].strip()}. Respond with valid, efficient R code only. Do not explain the code; just provide the code.\n### Response:"
+        instruction = f"Write ONLY R code to {ex['Comment'].strip()}. Respond with valid, efficient R code only. Do not explain the code; just provide the code."
+        prompt = f"<s>[INST] {instruction} [/INST] {ex['Code'].strip()}</s>"
         return {
-            "prompt": instr,
-            "code": ex["Code"].strip()
+            "text": prompt
         }
     inst = raw.map(make_instruction)
 
     ##### 3. Tokenize prompts + code separately #####
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-3B")
+    tokenizer = AutoTokenizer.from_pretrained("codellama/CodeLlama-7b-hf")
     tokenizer.pad_token = tokenizer.eos_token
 
     def preprocess(ex):
-        # Concatenate prompt and code
-        full_text = ex["prompt"] + "\n" + ex["code"]
-        enc = tokenizer(full_text, truncation=True, padding="max_length", max_length=512)
-        
-        # Find the split point between prompt and code
-        prompt_ids = tokenizer(ex["prompt"], add_special_tokens=False)["input_ids"]
-        split_idx = len(prompt_ids)
-        
-        # Mask out the prompt part for loss (-100)
-        labels = [-100] * split_idx + enc["input_ids"][split_idx:]
-        labels = labels[:512]  # Make sure labels match input length
+        enc = tokenizer(ex["text"], truncation=True, padding="max_length", max_length=512)
+        labels = enc["input_ids"].copy()  # Train to predict full output
         return {
             "input_ids": enc["input_ids"],
             "attention_mask": enc["attention_mask"],
@@ -63,7 +54,7 @@ def train():
         bnb_4bit_compute_dtype=torch.bfloat16,
     )
     model = AutoModelForCausalLM.from_pretrained(
-        "meta-llama/Llama-3.2-3B",
+        "codellama/CodeLlama-7b-hf",
         quantization_config=bnb_config,
         device_map="auto",
         trust_remote_code=True,
@@ -85,8 +76,8 @@ def train():
     training_args = TrainingArguments(
         output_dir="./results",
         num_train_epochs=2,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=8,
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
         save_steps=500,
         save_total_limit=2,
         logging_dir="./logs",
@@ -96,13 +87,11 @@ def train():
         report_to="none",
     )
     response_template = "### Response:\n"
-    data_collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
     trainer = SFTTrainer(
         model=model,
         args=training_args,
         train_dataset=tok,
-        processing_class=tokenizer,
-        data_collator=data_collator
+        processing_class=tokenizer
     )
     trainer.train()
 

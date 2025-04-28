@@ -1,5 +1,5 @@
 ---
-base_model: meta-llama/Llama-3.2-3B
+base_model: codellama/CodeLlama-7b-hf
 library_name: peft
 ---
 
